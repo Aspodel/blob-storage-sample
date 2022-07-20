@@ -12,20 +12,22 @@ namespace BlobQuickstartV12
         {
             Console.WriteLine("Azure Blob Storage v12 - .NET quickstart sample\n");
 
-            string resultURL = await UploadFile();
-            Console.WriteLine("{0}", resultURL);
+            await UploadMultiFile();
+
+            List<string> resultURL = await UploadMultiFile();
+            foreach (string url in resultURL)
+            {
+                Console.WriteLine("{0}", url);
+            }
         }
 
         static async Task<string> UploadFile()
         {
-
             string? connectionString = Environment.GetEnvironmentVariable("AZURE_STORAGE_CONNECTION_STRING");
-
             BlobServiceClient blobServiceClient = new BlobServiceClient(connectionString);
 
-            // Create the container and return a container client object
-            // BlobContainerClient containerClient = await blobServiceClient.CreateBlobContainerAsync("containername");
             BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient("containername");
+            await containerClient.CreateIfNotExistsAsync();
 
 
             string localPath = "./data/";
@@ -41,7 +43,30 @@ namespace BlobQuickstartV12
             // Upload data from the local file
             await blobClient.UploadAsync(localFilePath, true);
 
-            return blobClient.Uri.ToString();
+            return blobClient.Uri.AbsoluteUri;
+        }
+
+        static async Task<List<string>> UploadMultiFile()
+        {
+            string? connectionString = Environment.GetEnvironmentVariable("AZURE_STORAGE_CONNECTION_STRING");
+            BlobServiceClient blobServiceClient = new BlobServiceClient(connectionString);
+
+            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient("containername");
+            await containerClient.CreateIfNotExistsAsync();
+
+            //Getting all Text files in directory
+            string[] fileArray = Directory.GetFiles(@"D:\Project\BlobQuickstartV12\data", "*.txt");
+
+            List<string> resultUrls = new List<string> { };
+
+            Parallel.ForEach(fileArray, file =>
+                {
+                    BlobClient blobClient = containerClient.GetBlobClient(Path.GetFileName(file));
+                    resultUrls.Add(blobClient.Uri.AbsoluteUri);
+                    blobClient.UploadAsync(file, true);
+                });
+
+            return resultUrls;
         }
     }
 }
